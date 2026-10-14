@@ -46,26 +46,36 @@ class ForwardService : NotificationListenerService() {
         super.onCreate()
         prefs = Prefs(this)
         startForegroundNotification()
+        startOrderPolling()
+    }
+
+    /** Cek apakah package adalah aplikasi WhatsApp (untuk mode "semua") */
+    private fun isWhatsAppPackage(pkg: String): Boolean {
+        if (pkg == PACKAGE_WHATSAPP || pkg == PACKAGE_WHATSAPP_BUSINESS) return true
+        // Clone apps biasanya mengandung "whatsapp" di nama package
+        if (pkg.contains("whatsapp", ignoreCase = true)) return true
+        // Package clone custom yang diisi user
+        val clonePkg = prefs.waClonePackage.trim()
+        if (clonePkg.isNotEmpty() && pkg == clonePkg) return true
+        return false
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
         val pkg = sbn.packageName ?: return
 
-        // Paket WA yang dipilih user (biasa / bisnis / clone)
-        val waPackages = mutableSetOf(PACKAGE_WHATSAPP, PACKAGE_WHATSAPP_BUSINESS)
+        // Paket WA yang dipilih user (biasa / bisnis / clone / semua)
         val clonePkg = prefs.waClonePackage.trim()
-        if (clonePkg.isNotEmpty()) waPackages.add(clonePkg)
-        // Kalau pilih "clone", hanya dengar paket clone; kalau "biasa"/"bisnis", dengar paket itu saja
         val selectedPkg = when (prefs.waChoice) {
             "bisnis" -> PACKAGE_WHATSAPP_BUSINESS
             "clone" -> clonePkg.ifEmpty { null }
+            "semua" -> null // null = semua WA
             else -> PACKAGE_WHATSAPP
         }
-        val isWa = if (prefs.waChoice == "clone") {
-            pkg == clonePkg && clonePkg.isNotEmpty()
-        } else {
-            pkg == selectedPkg
+        val isWa = when (prefs.waChoice) {
+            "semua" -> isWhatsAppPackage(pkg)
+            "clone" -> pkg == clonePkg && clonePkg.isNotEmpty()
+            else -> pkg == selectedPkg
         }
         val isSms = SMS_PACKAGES.contains(pkg)
         if (isWa && !prefs.forwardWa) return
@@ -129,6 +139,7 @@ class ForwardService : NotificationListenerService() {
             val targetPkg = when (prefs.waChoice) {
                 "bisnis" -> PACKAGE_WHATSAPP_BUSINESS
                 "clone" -> prefs.waClonePackage.trim().ifEmpty { null }
+                "semua" -> PACKAGE_WHATSAPP // default ke WA biasa untuk buka app
                 else -> PACKAGE_WHATSAPP
             } ?: return
             val intent = pm.getLaunchIntentForPackage(targetPkg) ?: return
@@ -136,6 +147,73 @@ class ForwardService : NotificationListenerService() {
             startActivity(intent)
         } catch (e: Exception) {
             Log.e(TAG, "Buka WhatsApp gagal: ${e.message}")
+        }
+    }
+
+    /** Buka chat WA dengan nomor tertentu via wa.me */
+    private fun openWhatsAppChat(number: String) {
+        try {
+            val clean = number.filter { it.isDigit() }
+            if (clean.isEmpty()) return
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                data = android.net.Uri.parse("https://wa.me/$clean")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            // Coba buka dengan package WA yang dipilih
+            val targetPkg = when (prefs.waChoice) {
+                "bisnis" -> PACKAGE_WHATSAPP_BUSINESS
+                "clone" -> prefs.waClonePackage.trim().ifEmpty { null }
+                else -> PACKAGE_WHATSAPP
+            }
+            if (targetPkg != null) intent.setPackage(targetPkg)
+            startActivity(intent)
+            Log.d(TAG, "Buka chat WA: $clean")
+        } catch (e: Exception) {
+            Log.e(TAG, "Buka chat WA gagal: ${e.message}")
+        }
+    }
+
+    /** Polling gateway untuk perintah buka WA dari order bot Telegram */
+    private fun startOrderPolling() {
+        scope.launch {
+            while (true) {
+                try {
+                    kotlinx.coroutines.delay(prefs.pollIntervalSec * 1000L)
+                    if (!prefs.autoOpenOrder) continue
+                    val to = prefs.toNumber.trim()
+                    if (to.isEmpty()) continue
+                    // Derive base URL dari gatewayUrl (hapus path /otp/ingest)
+                    var base = prefs.gatewayUrl.trim()
+                    if (base.isEmpty()) continue
+                    // Ambil origin saja, mis. http://72.60.40.224:3000
+                    val urlObj = URL(base)
+                    val origin = "${urlObj.protocol}://${urlObj.host}" +
+                        (if (urlObj.port != -1) ":${urlObj.port}" else "")
+                    var pollUrl = "$origin/wa-open?to=$to"
+                    if (prefs.apiKey.isNotEmpty()) pollUrl += "&key=${prefs.apiKey}"
+                    val conn = (URL(pollUrl).openConnection() as HttpURLConnection).apply {
+                        requestMethod = "GET"
+                        connectTimeout = 10_000
+                        readTimeout = 10_000
+                    }
+                    if (conn.responseCode == 200) {
+                        val body = conn.inputStream.bufferedReader().readText()
+                        conn.disconnect()
+                        val json = JSONObject(body)
+                        val numbers = json.optJSONArray("open")
+                        if (numbers != null) {
+                            for (i in 0 until numbers.length()) {
+                                val num = numbers.optString(i, "")
+                                if (num.isNotBlank()) openWhatsAppChat(num)
+                            }
+                        }
+                    } else {
+                        conn.disconnect()
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Polling wa-open gagal: ${e.message}")
+                }
+            }
         }
     }
 

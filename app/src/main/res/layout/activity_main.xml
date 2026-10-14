@@ -36,6 +36,19 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
+            android:text="Sesi"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <Spinner
+            android:id="@+id/spSession"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
             android:text="Gateway URL"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -81,16 +94,42 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:text="Nomor untuk Buka WA"
+            android:text="Nomor untuk Buka WA (bisa banyak)"
             android:textSize="14sp"
             android:textStyle="bold" />
 
-        <EditText
-            android:id="@+id/etOpenWaNum"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Nomor untuk Buka WA"
-            android:inputType="phone" />
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/etOpenWaNum"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:hint="Ketik nomor, mis. 62812xxxx"
+                android:inputType="phone" />
+
+            <Button
+                android:id="@+id/btnAddNumber"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tambah" />
+        </LinearLayout>
+
+        <ListView
+            android:id="@+id/lvNumbers"
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Tap nomor di daftar untuk hapus"
+            android:textSize="11sp" />
 
         <TextView
             android:layout_width="match_parent"
@@ -135,6 +174,14 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="Buka WhatsApp saat notifikasi masuk" />
+
+        <Switch
+            android:id="@+id/swAutoOpenOrder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:checked="true"
+            android:text="Auto-buka chat dari order bot Telegram" />
 
         <Button
             android:id="@+id/btnSave"

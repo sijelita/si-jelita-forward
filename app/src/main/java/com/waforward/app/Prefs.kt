@@ -40,6 +40,14 @@ class Prefs(context: Context) {
         get() = sp.getString(sk(KEY_TO), if (activeSession == 1) DEFAULT_TO else "") ?: ""
         set(v) = sp.edit().putString(sk(KEY_TO), v).apply()
 
+    /** Daftar nomor HP ini (bisa banyak, untuk terima OTP) */
+    var toNumbers: MutableSet<String>
+        get() {
+            val def = if (activeSession == 1) mutableSetOf(DEFAULT_TO) else mutableSetOf()
+            return sp.getStringSet(sk(KEY_TO_NUMS), def)?.toMutableSet() ?: def
+        }
+        set(v) = sp.edit().putStringSet(sk(KEY_TO_NUMS), v).apply()
+
     var openWaNumber: String
         get() = sp.getString(sk(KEY_OPEN_WA_NUM), if (activeSession == 1) DEFAULT_OPEN_WA_NUMBER else "") ?: ""
         set(v) = sp.edit().putString(sk(KEY_OPEN_WA_NUM), v).apply()
@@ -80,13 +88,14 @@ class Prefs(context: Context) {
         set(v) = sp.edit().putBoolean(sk(KEY_AUTO_OPEN_ORDER), v).apply()
 
     companion object {
-        const val MAX_SESSIONS = 10
+        const val MAX_SESSIONS = 1000
 
         private const val KEY_ACTIVE_SESSION = "active_session"
         private const val KEY_URL = "gateway_url"
         private const val KEY_API_KEY = "api_key"
         private const val KEY_POLL_INTERVAL = "poll_interval_sec"
         private const val KEY_TO = "to_number"
+        private const val KEY_TO_NUMS = "to_numbers"
         private const val KEY_OPEN_WA_NUM = "open_wa_number"
         private const val KEY_OPEN_WA_NUMS = "open_wa_numbers"
         private const val KEY_WA_CHOICE = "wa_choice"

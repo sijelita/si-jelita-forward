@@ -35,6 +35,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvStatus: TextView
     private lateinit var numAdapter: ArrayAdapter<String>
     private val numberList = mutableListOf<String>()
+    private lateinit var toAdapter: ArrayAdapter<String>
+    private val toList = mutableListOf<String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -77,8 +79,34 @@ class MainActivity : AppCompatActivity() {
         // Load saved values
         etUrl.setText(prefs.gatewayUrl)
         etApiKey.setText(prefs.apiKey)
-        etTo.setText(prefs.toNumber)
-        etTo.hint = "Nomor untuk Forward (WA) — default 628136262899"
+        // Daftar Nomor HP ini (bisa tambah banyak)
+        val lvToNumbers = findViewById<android.widget.ListView>(R.id.lvToNumbers)
+        val btnAddTo = findViewById<Button>(R.id.btnAddTo)
+        toList.clear()
+        toList.addAll(prefs.toNumbers.sorted())
+        toAdapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, toList)
+        lvToNumbers.adapter = toAdapter
+        btnAddTo.setOnClickListener {
+            val num = etTo.text.toString().trim().filter { it.isDigit() }
+            if (num.isEmpty()) {
+                Toast.makeText(this, "Isi nomor dulu", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            if (toList.contains(num)) {
+                Toast.makeText(this, "Nomor sudah ada", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            toList.add(num)
+            toList.sort()
+            toAdapter.notifyDataSetChanged()
+            etTo.text.clear()
+            Toast.makeText(this, "Nomor ditambah", Toast.LENGTH_SHORT).show()
+        }
+        lvToNumbers.setOnItemClickListener { _, _, pos, _ ->
+            val removed = toList.removeAt(pos)
+            toAdapter.notifyDataSetChanged()
+            Toast.makeText(this, "Hapus: $removed", Toast.LENGTH_SHORT).show()
+        }
         // Daftar nomor Buka WA (bisa tambah banyak)
         etOpenWaNum = findViewById<EditText>(R.id.etOpenWaNum)
         val lvNumbers = findViewById<android.widget.ListView>(R.id.lvNumbers)
@@ -172,7 +200,10 @@ class MainActivity : AppCompatActivity() {
     private fun saveCurrentSession() {
         prefs.gatewayUrl = etUrl.text.toString().trim()
         prefs.apiKey = etApiKey.text.toString().trim()
-        prefs.toNumber = etTo.text.toString().trim()
+        // Simpan daftar Nomor HP ini
+        prefs.toNumbers = toList.toMutableSet()
+        prefs.toNumber = toList.firstOrNull() ?: ""
+        // Simpan daftar nomor Buka WA
         prefs.openWaNumbers = numberList.toMutableSet()
         prefs.openWaNumber = numberList.firstOrNull() ?: ""
         prefs.waChoice = when (spWaChoice.selectedItemPosition) {
